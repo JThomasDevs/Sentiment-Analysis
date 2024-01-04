@@ -25,7 +25,7 @@ headlines = [element.text for element in selected_elements]
 
 
 # Sentiment Analyzer Class
-class SentimentAnalyzer:
+class HeadlineAnalyzer:
     def __init__(self):
         # VADER Analyzer
         print('Initializing Sentiment Analyzer...')
@@ -45,6 +45,7 @@ class SentimentAnalyzer:
         start_time = time.time()
         positive_words = [word for word, _ in filter(self.skip_unwanted, nltk.pos_tag(nltk.corpus.movie_reviews.words(categories=["pos"])))]
         negative_words = [word for word, _ in filter(self.skip_unwanted, nltk.pos_tag(nltk.corpus.movie_reviews.words(categories=["neg"])))]
+        print(len(positive_words), len(negative_words))
         print(f'{time.time() - start_time:.2f}s\n')
         
         # FDs and Top 100 positive words
@@ -110,4 +111,4 @@ class SentimentAnalyzer:
     
 
 if __name__ == "__main__":
-    analyzer = SentimentAnalyzer()
+    analyzer = HeadlineAnalyzer()
