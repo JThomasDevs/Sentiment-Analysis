@@ -1,5 +1,6 @@
 from random import shuffle
 import time
+import re
 import requests
 from bs4 import BeautifulSoup
 from statistics import mean
@@ -22,6 +23,7 @@ html_content = response.text
 soup = BeautifulSoup(html_content, 'html.parser')
 selected_elements = soup.select('span[class="container__headline-text"]')
 headlines = [element.text for element in selected_elements]
+print(f'Headlines gathered: {len(headlines)}')
 
 
 # Sentiment Analyzer Class
@@ -43,14 +45,13 @@ class HeadlineAnalyzer:
         # Positive and negative words (negative only needed to filter shared words)
         print('Creating positive word list...')
         start_time = time.time()
-        positive_words = [word for word, _ in filter(self.skip_unwanted, nltk.pos_tag(nltk.corpus.movie_reviews.words(categories=["pos"])))]
-        positive_words.extend([word for word in nltk.corpus.pros_cons.words(categories=["Pros"]) if word not in self.unwanted])
+        positive_words = [word for word in open('positive_words.txt', 'r').read().split('\n') if re.match("^[A-Za-z]+$", word)]
         print(f'{time.time() - start_time:.2f}s\n')
 
         print('Creating negative word list...')
         start_time = time.time()
-        negative_words = [word for word, _ in filter(self.skip_unwanted, nltk.pos_tag(nltk.corpus.movie_reviews.words(categories=["neg"])))]
-        negative_words.extend([word for word in nltk.corpus.pros_cons.words(categories=["Cons"]) if word not in self.unwanted])
+
+        negative_words = [word for word in open('negative_words.txt', 'r').read().split('\n') if re.match("^[A-Za-z]+$", word)]
         print(f'{time.time() - start_time:.2f}s\n')
         
         # FDs and Top 100 positive words
@@ -71,21 +72,32 @@ class HeadlineAnalyzer:
         self.features = [
             (self.extract_features(nltk.corpus.movie_reviews.raw(review)), "pos") for review in nltk.corpus.movie_reviews.fileids(categories=["pos"])
         ]
+        print('positive features done...')
         self.features.extend([
             (self.extract_features(nltk.corpus.movie_reviews.raw(review)), "neg") for review in nltk.corpus.movie_reviews.fileids(categories=["neg"])
         ])
+        print('negative features done...')
+        self.features.extend([
+            (self.extract_features(nltk.corpus.pros_cons.raw(pro)), "pos") for pro in nltk.corpus.pros_cons.fileids(categories=["pros"])
+        ])
+        print('pros features done...')
+        self.features.extend([
+            (self.extract_features(nltk.corpus.pros_cons.raw(con)), "neg") for con in nltk.corpus.pros_cons.fileids(categories=["cons"])
+        ])
+        print('cons features done...')
         print(f'{time.time() - start_time:.2f}s\n')
 
         # Train the model with the features list
         print('Training model...')
         start_time = time.time()
         shuffle(self.features)
-        train_count = len(self.features) // 4
-        classifier = nltk.classify.SklearnClassifier(MLPClassifier(max_iter=1000))
-        classifier.train(self.features[:train_count])
+        print(self.features[:5])
+        train_count = len(self.features)
+        self.classifier = nltk.classify.SklearnClassifier(MLPClassifier(max_iter=1000))
+        self.classifier.train(self.features[:train_count])
         print(f'{time.time() - start_time:.2f}s\n')
-        accuracy = nltk.classify.accuracy(classifier, self.features[train_count:])
-        print(f'Accuracy: {accuracy:.2%}')
+        # accuracy = nltk.classify.accuracy(classifier, self.features[train_count:])
+        # print(f'Accuracy: {accuracy:.2%}')
 
     def skip_unwanted(self, pos_tuple):
         word, tag = pos_tuple
@@ -114,6 +126,15 @@ class HeadlineAnalyzer:
 
         return features
     
+    def analyze(self, headline):
+        features = self.extract_features(headline)
+        return self.classifier.classify(features)
+    
 
 if __name__ == "__main__":
     analyzer = HeadlineAnalyzer()
+    print(analyzer.analyze("This is a good headline"))
+    print(analyzer.analyze("This is a bad headline"))
+    print('\n')
+    for headline in headlines:
+        print(f'{headline} - {analyzer.analyze(headline)}')
