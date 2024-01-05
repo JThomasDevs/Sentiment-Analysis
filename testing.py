@@ -41,11 +41,16 @@ class HeadlineAnalyzer:
         print(f'{time.time() - start_time:.2f}s\n')
 
         # Positive and negative words (negative only needed to filter shared words)
-        print('Creating positive and negative word lists...')
+        print('Creating positive word list...')
         start_time = time.time()
         positive_words = [word for word, _ in filter(self.skip_unwanted, nltk.pos_tag(nltk.corpus.movie_reviews.words(categories=["pos"])))]
+        positive_words.extend([word for word in nltk.corpus.pros_cons.words(categories=["Pros"]) if word not in self.unwanted])
+        print(f'{time.time() - start_time:.2f}s\n')
+
+        print('Creating negative word list...')
+        start_time = time.time()
         negative_words = [word for word, _ in filter(self.skip_unwanted, nltk.pos_tag(nltk.corpus.movie_reviews.words(categories=["neg"])))]
-        print(len(positive_words), len(negative_words))
+        negative_words.extend([word for word in nltk.corpus.pros_cons.words(categories=["Cons"]) if word not in self.unwanted])
         print(f'{time.time() - start_time:.2f}s\n')
         
         # FDs and Top 100 positive words
