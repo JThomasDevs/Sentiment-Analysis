@@ -4,6 +4,7 @@ import requests
 from statistics import mean
 from bs4 import BeautifulSoup
 from nltk.sentiment import SentimentIntensityAnalyzer
+import re
 
 
 def gather_headlines():
@@ -12,10 +13,9 @@ def gather_headlines():
     response = requests.get(url)
     html_content = response.text
     soup = BeautifulSoup(html_content, 'html.parser')
-    selected_elements = soup.select('span[class="container__headline-text"]')
-    print(f'Gathered {len(selected_elements)} headlines')
-    return [element.text for element in selected_elements]
-
+    selected_elements = soup.select('section[class^="layout__wrapper"]')
+    headline_elements = selected_elements[0].select('span[class="container__headline-text"]')
+    return list(set([element.text for element in headline_elements]))
 
 # Sentiment Analyzer Class
 class HeadlineAnalyzer:
@@ -32,6 +32,17 @@ class HeadlineAnalyzer:
         self.unwanted = nltk.corpus.stopwords.words("english")
         self.unwanted.extend([word.lower() for word in nltk.corpus.names.words()])
         print(f'{time.time() - start_time:.2f}s\n')
+
+        self.headlines = gather_headlines()
+        print(f'Gathered {len(self.headlines)} headlines')
+        with open('HeadlineAnalysis/headlines_text', 'r') as f:
+            lines = [line.strip() for line in f.readlines()]
+        with open('HeadlineAnalysis/headlines_text', 'a') as f:
+            for headline in self.headlines:
+                for char in re.findall(r'[^a-zA-Z0-9,$?.-:\' ]', headline):
+                    print(f'Found {char} in {headline} - Unicode: {ord(char)}')
+                if headline not in lines:
+                    f.write(f'{headline}\n')
 
     def skip_unwanted(self, scores_tag_tuple):
         word, tag = scores_tag_tuple
@@ -57,17 +68,17 @@ class HeadlineAnalyzer:
     
     def categorize_headlines_manual(self, headlines):
         for headline in headlines:
-            print(f'\n{headline}\n{self.extract_features(headline)}\n')
+            print(f'\n{headline}\n{self.sia.polarity_scores(headline)}\n')
             choice = input('Is this headline good, bad, or neutral? (g, b, n)\n')
+            while choice not in ['g', 'b', 'n']:
+                choice = input('Invalid choice. Please enter g, b, or n.')
             if choice == 'g':
                 tag = 'pos'
             elif choice == 'b':
                 tag = 'neg'
             else:
                 tag = 'neu'
-            with open('headline_scores_labels.txt', 'r') as f:
-                lines = f.readlines()
-            with open('headline_scores_labels.txt', 'a') as f:
+            with open('HeadlineAnalysis/headlines_lexicon.txt', 'a') as f:
                 score = self.sia.polarity_scores(headline)
                 if f'{score}\t{tag}' not in lines:
                     f.write(f'{score}\t{tag}\n')
@@ -75,4 +86,4 @@ class HeadlineAnalyzer:
 
 if __name__ == "__main__":
     analyzer = HeadlineAnalyzer()
-    analyzer.categorize_headlines_manual(gather_headlines())
+    # analyzer.categorize_headlines_manual(gather_headlines())
